@@ -11,9 +11,20 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from tunnel_client import tunnel_manager
-from cloudflare_tunnel import cloudflare_manager
-from ngrok_tunnel import ngrok_manager
+try:
+    from tunnel_client import tunnel_manager
+except Exception:
+    tunnel_manager = None
+
+try:
+    from cloudflare_tunnel import cloudflare_manager
+except Exception:
+    cloudflare_manager = None
+
+try:
+    from ngrok_tunnel import ngrok_manager
+except Exception:
+    ngrok_manager = None
 
 # 사진 저장 폴더 경로 (현재 폴더 내 Anti_PIC 우선 참조, 없을 시 바탕화면 참조)
 BASE_DIR = Path(__file__).resolve().parent
@@ -43,17 +54,21 @@ def start_background_tunnel():
     def init_tunnels():
         # 서버 포트(8000) 바인딩 대기 후 터널 연결
         time.sleep(1.0)
-        print("[Server] Starting ngrok permanent static tunnel ...")
-        ngrok_manager.start()
-        print("[Server] Starting Cloudflare zero-password tunnel ...")
-        cloudflare_manager.start()
+        if ngrok_manager:
+            print("[Server] Starting ngrok permanent static tunnel ...")
+            ngrok_manager.start()
+        if cloudflare_manager:
+            print("[Server] Starting Cloudflare zero-password tunnel ...")
+            cloudflare_manager.start()
     threading.Thread(target=init_tunnels, daemon=True).start()
 
 @app.on_event("shutdown")
 def stop_background_tunnel():
     if not IS_RENDER:
-        ngrok_manager.stop()
-        cloudflare_manager.stop()
+        if ngrok_manager:
+            ngrok_manager.stop()
+        if cloudflare_manager:
+            cloudflare_manager.stop()
 
 app.add_middleware(
     CORSMiddleware,
@@ -221,12 +236,20 @@ def get_info():
     
     data = load_data()
     render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    cf_url = cloudflare_manager.url if cloudflare_manager else None
+    cf_active = cloudflare_manager.active if cloudflare_manager else False
+    ng_url = ngrok_manager.url if ngrok_manager else None
+    ng_active = ngrok_manager.active if ngrok_manager else False
+    lt_url = tunnel_manager.url if tunnel_manager else None
+    lt_pwd = tunnel_manager.tunnel_password if tunnel_manager else ""
+    lt_active = tunnel_manager.active if tunnel_manager else False
+
     if IS_RENDER and render_url:
         primary_tunnel_url = render_url
         is_active = True
     else:
-        primary_tunnel_url = cloudflare_manager.url if cloudflare_manager.active else (ngrok_manager.url or tunnel_manager.url)
-        is_active = cloudflare_manager.active or ngrok_manager.active or tunnel_manager.active
+        primary_tunnel_url = cf_url if cf_active else (ng_url or lt_url)
+        is_active = cf_active or ng_active or lt_active
 
     port_val = int(os.environ.get("PORT", 8000))
     
@@ -236,12 +259,12 @@ def get_info():
         "port": port_val,
         "photo_count": len(data.get("photos", [])),
         "tunnel_url": primary_tunnel_url,
-        "cloudflare_url": cloudflare_manager.url,
-        "cloudflare_active": cloudflare_manager.active,
-        "ngrok_url": ngrok_manager.url,
-        "ngrok_active": ngrok_manager.active,
-        "localtunnel_url": tunnel_manager.url,
-        "tunnel_password": tunnel_manager.tunnel_password,
+        "cloudflare_url": cf_url,
+        "cloudflare_active": cf_active,
+        "ngrok_url": ng_url,
+        "ngrok_active": ng_active,
+        "localtunnel_url": lt_url,
+        "tunnel_password": lt_pwd,
         "tunnel_active": is_active,
         "is_render": IS_RENDER
     }
