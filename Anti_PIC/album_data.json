@@ -1,0 +1,336 @@
+{
+  "shared": {
+    "id": "all",
+    "avatar": "🌈",
+    "name": "모두의 추억",
+    "desc": "대고련 7기 친구들의 아름다운 추억이다잉~",
+    "color": "#ffb5a7"
+  },
+  "members": [
+    {
+      "id": "m1",
+      "avatar": "🌊",
+      "name": "연수",
+      "desc": "바닷가 사나이",
+      "color": "#7db3ed"
+    },
+    {
+      "id": "m2",
+      "avatar": "🎀",
+      "name": "남현",
+      "desc": "보수의 심장",
+      "color": "#ef0b0b"
+    },
+    {
+      "id": "m3",
+      "avatar": "🌿",
+      "name": "채현",
+      "desc": "수영하는 간호사",
+      "color": "#fcd5ce"
+    },
+    {
+      "id": "m4",
+      "avatar": "☀️",
+      "name": "하연",
+      "desc": "왕중의 왕",
+      "color": "#fbf418"
+    },
+    {
+      "id": "m5",
+      "avatar": "🌸",
+      "name": "형준",
+      "desc": "이별택시",
+      "color": "#886fc3"
+    },
+    {
+      "id": "m6",
+      "avatar": "🌷",
+      "name": "지혜",
+      "desc": "예비신부",
+      "color": "#81eeab"
+    },
+    {
+      "id": "m7",
+      "avatar": "⭐",
+      "name": "정률",
+      "desc": "또라이",
+      "color": "#0d0d0d"
+    }
+  ],
+  "photos": [
+    {
+      "id": "bdb3c1",
+      "filename": "20260909_203559_bdb3c1.jpg",
+      "author": "공용",
+      "member_id": "all",
+      "caption": "이때 기억나?",
+      "date": "2025-10-19",
+      "created_at": 1788953759.362517,
+      "likes": 26,
+      "comments": [],
+      "album_id": "album_all_default"
+    },
+    {
+      "id": "26720a",
+      "filename": "20260909_205637_26720a.jpeg",
+      "author": "공용",
+      "member_id": "all",
+      "caption": "또 먹고싶다 ㅠㅠ",
+      "date": "2025-10-18",
+      "created_at": 1788954997.934938,
+      "likes": 14,
+      "comments": [
+        {
+          "id": "2406a844",
+          "author": "연수",
+          "member_id": "m1",
+          "content": "우리 대고련 7기 평생 가자! 💖",
+          "date": "2026-09-09 21:29",
+          "created_at": 1788956974.390039
+        },
+        {
+          "id": "3b110d86",
+          "author": "연수",
+          "member_id": "m1",
+          "content": "댓글 TEST",
+          "date": "2026-09-09 21:30",
+          "created_at": 1788957030.348224
+        },
+        {
+          "id": "06a24316",
+          "author": "연수",
+          "member_id": "m1",
+          "content": "회 진짜 맛있겠다 남현아 형준아 좀 먹어봐",
+          "date": "2026-09-09 21:39",
+          "created_at": 1788957546.678712
+        },
+        {
+          "id": "c04560dd",
+          "author": "하연",
+          "member_id": "m4",
+          "content": "아 형준아 좀 그렇다",
+          "date": "2026-09-09 21:39",
+          "created_at": 1788957582.159952
+        }
+      ],
+      "album_id": "album_all_default"
+    },
+    {
+      "id": "320af9",
+      "filename": "20260909_213942_320af9.jpeg",
+      "author": "공용",
+      "member_id": "all",
+      "caption": "ㅋㅋ",
+      "date": "2026-09-09",
+      "created_at": 1788957582.961507,
+      "likes": 2,
+      "comments": [
+        {
+          "id": "2d84c7cc",
+          "author": "연수",
+          "member_id": "m1",
+          "content": "아 오반데",
+          "date": "2026-09-09 21:40",
+          "created_at": 1788957610.940752
+        },
+        {
+          "id": "944cd895",
+          "author": "하연",
+          "member_id": "m4",
+          "content": "섹시하다",
+          "date": "2026-09-09 21:45",
+          "created_at": 1788957924.20761
+        }
+      ],
+      "album_id": "album_all_default"
+    },
+    {
+      "id": "e0af52",
+      "filename": "20260909_214411_e0af52.jpg",
+      "author": "형준",
+      "member_id": "m5",
+      "caption": "안경을 거꾸로 써도 김형준~\r\n똑바로 써도 김형준~",
+      "date": "2026-09-09",
+      "created_at": 1788957851.54421,
+      "likes": 1,
+      "comments": [
+        {
+          "id": "2c243b20",
+          "author": "연수",
+          "member_id": "m1",
+          "content": "ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ",
+          "date": "2026-09-09 21:44",
+          "created_at": 1788957868.187535
+        }
+      ],
+      "album_id": "album_m5_default"
+    },
+    {
+      "id": "1a0189",
+      "filename": "20260909_215517_1a0189.jpeg",
+      "author": "공용",
+      "member_id": "all",
+      "caption": "누가 누구야?",
+      "date": "2026-09-09",
+      "created_at": 1788958517.855359,
+      "likes": 3,
+      "comments": [
+        {
+          "id": "dfaa857e",
+          "author": "익명",
+          "member_id": "anon",
+          "content": "댓글은 다 익명이야!!!! 특정 할 기준이 없어!",
+          "date": "2026-09-09 22:07",
+          "created_at": 1788959240.952213
+        }
+      ],
+      "album_id": "album_all_default"
+    },
+    {
+      "id": "5e6f1d",
+      "filename": "20260909_221023_5e6f1d.jpg",
+      "author": "공용",
+      "member_id": "all",
+      "caption": "너희들 진짜 젊다...",
+      "date": "2024-01-26",
+      "created_at": 1788959423.446757,
+      "likes": 8,
+      "comments": [],
+      "album_id": "album_all_default"
+    },
+    {
+      "id": "798fb6",
+      "filename": "20260910_112644_798fb6.jpeg",
+      "author": "채현",
+      "member_id": "m3",
+      "album_id": "album_m3_default",
+      "caption": "떡뽀키 냠!",
+      "date": "2026-09-10",
+      "created_at": 1789007204.759707,
+      "likes": 0,
+      "comments": []
+    },
+    {
+      "id": "e2c200",
+      "filename": "20260910_133124_e2c200.jpeg",
+      "author": "연수",
+      "member_id": "m1",
+      "album_id": "album_m1_default",
+      "caption": "",
+      "date": "2026-09-10",
+      "created_at": 1789014684.821073,
+      "likes": 0,
+      "comments": []
+    },
+    {
+      "id": "18d598",
+      "filename": "20260910_133206_18d598.jpeg",
+      "author": "연수",
+      "member_id": "m1",
+      "album_id": "album_m1_default",
+      "caption": "",
+      "date": "2026-09-10",
+      "created_at": 1789014726.088671,
+      "likes": 0,
+      "comments": []
+    },
+    {
+      "id": "0e460e",
+      "filename": "20260910_133649_0e460e.jpeg",
+      "author": "연수",
+      "member_id": "m1",
+      "album_id": "album_m1_default",
+      "caption": "",
+      "date": "2026-09-10",
+      "created_at": 1789015009.862892,
+      "likes": 0,
+      "comments": []
+    },
+    {
+      "id": "b4deef",
+      "filename": "20260910_133933_b4deef.jpeg",
+      "author": "연수",
+      "member_id": "m1",
+      "album_id": "album_m1_default",
+      "caption": "",
+      "date": "2026-09-10",
+      "created_at": 1789015173.36217,
+      "likes": 0,
+      "comments": []
+    },
+    {
+      "id": "8070b7",
+      "filename": "20260910_135242_8070b7.jpeg",
+      "author": "채현",
+      "member_id": "m3",
+      "album_id": "album_all_default",
+      "caption": "챙니 생일 미리 축하해 🎈",
+      "date": "2026-09-10",
+      "created_at": 1789015962.217242,
+      "likes": 0,
+      "comments": []
+    },
+    {
+      "id": "711288",
+      "filename": "20260910_135536_711288.jpeg",
+      "author": "하연",
+      "member_id": "m4",
+      "album_id": "album_m4_default",
+      "caption": "흐~뭇",
+      "date": "2026-09-10",
+      "created_at": 1789016136.488378,
+      "likes": 0,
+      "comments": []
+    }
+  ],
+  "albums": [
+    {
+      "id": "album_all_default",
+      "name": "소중한 일상 추억 💖",
+      "member_id": "all",
+      "created_at": 1700000000.0
+    },
+    {
+      "id": "album_m1_default",
+      "name": "연수의 추억 앨범 ✨",
+      "member_id": "m1",
+      "created_at": 1700000000.0
+    },
+    {
+      "id": "album_m2_default",
+      "name": "남현의 추억 앨범 ✨",
+      "member_id": "m2",
+      "created_at": 1700000000.0
+    },
+    {
+      "id": "album_m3_default",
+      "name": "채현의 추억 앨범 ✨",
+      "member_id": "m3",
+      "created_at": 1700000000.0
+    },
+    {
+      "id": "album_m4_default",
+      "name": "하연의 추억 앨범 ✨",
+      "member_id": "m4",
+      "created_at": 1700000000.0
+    },
+    {
+      "id": "album_m5_default",
+      "name": "형준의 추억 앨범 ✨",
+      "member_id": "m5",
+      "created_at": 1700000000.0
+    },
+    {
+      "id": "album_m6_default",
+      "name": "지혜의 추억 앨범 ✨",
+      "member_id": "m6",
+      "created_at": 1700000000.0
+    },
+    {
+      "id": "album_m7_default",
+      "name": "정률의 추억 앨범 ✨",
+      "member_id": "m7",
+      "created_at": 1700000000.0
+    }
+  ]
+}
