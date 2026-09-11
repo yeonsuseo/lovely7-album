@@ -5,12 +5,16 @@ import socket
 import time
 import threading
 import datetime
+import mimetypes
 from pathlib import Path
 from typing import List, Optional
+import requests
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
 try:
     from tunnel_client import tunnel_manager
 except Exception:
@@ -25,6 +29,10 @@ try:
     from ngrok_tunnel import ngrok_manager
 except Exception:
     ngrok_manager = None
+
+# Supabase 클라우드 설정
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://vnbadllwmdatrowzunex.supabase.co").rstrip("/")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "sb_publishable_cBeCGUigQ2Gj7jBCTJ972A_MDTARqws")
 
 # 사진 저장 폴더 경로 (현재 폴더 내 Anti_PIC 우선 참조, 없을 시 바탕화면 참조)
 BASE_DIR = Path(__file__).resolve().parent
@@ -107,7 +115,86 @@ DEFAULT_ALBUMS = [
     }
 ]
 
+# ── Supabase 클라우드 연동 헬퍼 ─────────────────────────────
+def supabase_upload_photo(filename: str, file_bytes: bytes, content_type: str = "image/jpeg"):
+    """Supabase Storage 버킷(photos)에 사진 업로드"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return
+    try:
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": content_type,
+            "x-upsert": "true"
+        }
+        res = requests.post(f"{SUPABASE_URL}/storage/v1/object/photos/{filename}", headers=headers, data=file_bytes, timeout=20)
+        if res.status_code in (200, 201):
+            print(f"[Supabase Storage] ✅ {filename} 클라우드 저장 완료!")
+        else:
+            print(f"[Supabase Storage Warning] 상태 {res.status_code}: {res.text}")
+    except Exception as e:
+        print(f"[Supabase Storage Upload Error] {e}")
+
+def supabase_delete_photo(filename: str):
+    """Supabase Storage 버킷(photos)에서 사진 삭제"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return
+    try:
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}"
+        }
+        res = requests.delete(f"{SUPABASE_URL}/storage/v1/object/photos/{filename}", headers=headers, timeout=10)
+        print(f"[Supabase Storage] 삭제 완료 {filename}: {res.status_code}")
+    except Exception as e:
+        print(f"[Supabase Storage Delete Error] {e}")
+
+def supabase_save_data_sync(data: dict):
+    """Supabase Database(album_data)에 JSON 메타데이터 동기화"""
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        return
+    try:
+        headers = {
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": application/json,
+            "Prefer": "resolution=merge-duplicates"
+        }
+        payload = {
+            "id": "main",
+            "data": data,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        }
+        res = requests.post(f"{SUPABASE_URL}/rest/v1/album_data", headers=headers, json=payload, timeout=8)
+        if res.status_code not in (200, 201):
+            print(f"[Supabase DB Save Warning] 상태 {res.status_code}: {res.text}")
+    except Exception as e:
+        print(f"[Supabase DB Save Error] {e}")
+
 def load_data():
+    """1차로 Supabase 클라우드에서 최신 데이터를 가져오고, 불가 시 로컬 파일 로드"""
+    if SUPABASE_URL and SUPABASE_KEY:
+        try:
+            headers = {
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}"
+            }
+            res = requests.get(f"{SUPABASE_URL}/rest/v1/album_data?id=eq.main&select=data", headers=headers, timeout=6)
+            if res.status_code == 200:
+                rows = res.json()
+                if rows and "data" in rows[0]:
+                    cloud_data = rows[0]["data"]
+                    # 로컬 캐시 업데이트
+                    try:
+                        with open(DATA_FILE, "w", encoding="utf-8") as f:
+                            json.dump(cloud_data, f, ensure_ascii=False, indent=2)
+                    except Exception:
+                        pass
+                    return validate_and_migrate_data(cloud_data)
+        except Exception as e:
+            print(f"[Supabase Load Warning] 클라우드 로드 실패, 로컬 캐시 사용: {e}")
+
+    # 2. 로컬 캐시/파일 로드
     if not DATA_FILE.exists():
         initial_data = {
             "shared": DEFAULT_SHARED,
@@ -120,65 +207,68 @@ def load_data():
     try:
         with open(DATA_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
-            if "shared" not in data:
-                data["shared"] = DEFAULT_SHARED
-            if "members" not in data or len(data["members"]) == 0:
-                data["members"] = DEFAULT_MEMBERS
-            
-            # 앨범 초기화 및 검증
-            if "albums" not in data or not data["albums"]:
-                data["albums"] = [
-                    {
-                        "id": "album_all_default",
-                        "name": "소중한 일상 추억 💖",
-                        "member_id": "all",
-                        "created_at": 1700000000.0
-                    }
-                ]
-
-            # 각 멤버별 기본 앨범이 없는 경우 자동 추가
-            existing_album_members = {a.get("member_id") for a in data["albums"]}
-            for m in data.get("members", DEFAULT_MEMBERS):
-                if m["id"] not in existing_album_members:
-                    data["albums"].append({
-                        "id": f"album_{m['id']}_default",
-                        "name": f"{m['name']}의 추억 앨범 ✨",
-                        "member_id": m["id"],
-                        "created_at": 1700000000.0
-                    })
-
-            if "photos" not in data:
-                data["photos"] = []
-
-            # 기존 사진들에 album_id 자동 마이그레이션 (데이터 유실 방지)
-            album_ids = {a["id"] for a in data["albums"]}
-            modified = False
-            for p in data["photos"]:
-                if "comments" not in p:
-                    p["comments"] = []
-                if not p.get("album_id") or p.get("album_id") not in album_ids:
-                    m_id = p.get("member_id", "all")
-                    fallback_id = f"album_{m_id}_default" if m_id != "all" else "album_all_default"
-                    p["album_id"] = fallback_id if fallback_id in album_ids else "album_all_default"
-                    modified = True
-
-            if modified:
-                save_data(data)
-
-            return data
+            return validate_and_migrate_data(data)
     except Exception as e:
         print(f"데이터 로드 오류: {e}")
         return {"shared": DEFAULT_SHARED, "members": DEFAULT_MEMBERS, "albums": DEFAULT_ALBUMS.copy(), "photos": []}
 
+def validate_and_migrate_data(data):
+    """데이터 무결성 검증 및 기본값 보정"""
+    if "shared" not in data:
+        data["shared"] = DEFAULT_SHARED
+    if "members" not in data or len(data["members"]) == 0:
+        data["members"] = DEFAULT_MEMBERS
+    
+    if "albums" not in data or not data["albums"]:
+        data["albums"] = [
+            {
+                "id": "album_all_default",
+                "name": "소중한 일상 추억 💖",
+                "member_id": "all",
+                "created_at": 1700000000.0
+            }
+        ]
+
+    existing_album_members = {a.get("member_id") for a in data["albums"]}
+    for m in data.get("members", DEFAULT_MEMBERS):
+        if m["id"] not in existing_album_members:
+            data["albums"].append({
+                "id": f"album_{m['id']}_default",
+                "name": f"{m['name']}의 추억 앨범 ✨",
+                "member_id": m["id"],
+                "created_at": 1700000000.0
+            })
+
+    if "photos" not in data:
+        data["photos"] = []
+
+    album_ids = {a["id"] for a in data["albums"]}
+    modified = False
+    for p in data["photos"]:
+        if "comments" not in p:
+            p["comments"] = []
+        if not p.get("album_id") or p.get("album_id") not in album_ids:
+            m_id = p.get("member_id", "all")
+            fallback_id = f"album_{m_id}_default" if m_id != "all" else "album_all_default"
+            p["album_id"] = fallback_id if fallback_id in album_ids else "album_all_default"
+            modified = True
+
+    if modified:
+        save_data(data)
+
+    return data
+
 def save_data(data):
+    """로컬 캐시에 즉시 저장하고, 백그라운드 스레드로 Supabase 클라우드에 비동기 저장"""
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        print(f"데이터 저장 오류: {e}")
+        print(f"데이터 로컬 캐시 저장 오류: {e}")
+    threading.Thread(target=supabase_save_data_sync, args=(data,), daemon=True).start()
 
 def sync_disk_photos(data):
-    """Anti_PIC 폴더에 직접 추가된 이미지 파일들을 자동 감지하여 등록"""
+    """로컬 Anti_PIC 폴더에 새로 복사된 사진이 있다면 자동 감지하여 Supabase와 동기화"""
     existing_filenames = {p["filename"]: p for p in data.get("photos", [])}
     disk_files = []
     
@@ -189,7 +279,7 @@ def sync_disk_photos(data):
 
     updated = False
     
-    # 디스크에 새로 들어온 파일 감지
+    # 디스크에 새로 들어온 파일 감지 -> 자동 등록 및 Supabase 업로드
     for fname in disk_files:
         if fname not in existing_filenames:
             stat = (ANTI_PIC_DIR / fname).stat()
@@ -209,14 +299,14 @@ def sync_disk_photos(data):
             data["photos"].append(new_photo)
             updated = True
 
-    # 디스크에서 삭제된 파일 감지 (필터링)
-    valid_photos = []
-    for p in data["photos"]:
-        if (ANTI_PIC_DIR / p["filename"]).exists():
-            valid_photos.append(p)
-        else:
-            updated = True
-    data["photos"] = valid_photos
+            # 클라우드로 자동 백업
+            try:
+                with open(ANTI_PIC_DIR / fname, "rb") as fp:
+                    b = fp.read()
+                mime, _ = mimetypes.guess_type(fname)
+                threading.Thread(target=supabase_upload_photo, args=(fname, b, mime or "image/jpeg"), daemon=True).start()
+            except Exception:
+                pass
 
     if updated:
         save_data(data)
@@ -224,7 +314,7 @@ def sync_disk_photos(data):
 
 @app.get("/api/info")
 def get_info():
-    """서버 정보 및 로컬 네트워크 접속 가능 IP, 외부 터널 주소 반환"""
+    """서버 정보 및 접속 가능 IP, 외부 터널 주소 반환"""
     local_ips = []
     try:
         hostname = socket.gethostname()
@@ -266,7 +356,8 @@ def get_info():
         "localtunnel_url": lt_url,
         "tunnel_password": lt_pwd,
         "tunnel_active": is_active,
-        "is_render": IS_RENDER
+        "is_render": IS_RENDER,
+        "supabase_connected": bool(SUPABASE_URL and SUPABASE_KEY)
     }
 
 @app.get("/api/members")
@@ -383,7 +474,6 @@ def delete_album(album_id: str):
     if target_idx is None:
         raise HTTPException(status_code=404, detail="앨범을 찾을 수 없습니다.")
 
-    # 앨범 내 사진들을 기본 앨범으로 안전하게 이전 (데이터 절대 보존)
     fallback_album_id = f"album_{target_member_id}_default" if target_member_id != "all" else "album_all_default"
     for p in data.get("photos", []):
         if p.get("album_id") == album_id:
@@ -439,12 +529,21 @@ async def upload_photo(
     safe_filename = f"{timestamp_str}_{unique_id}{ext}"
     dest_path = ANTI_PIC_DIR / safe_filename
 
-    # 파일 저장 (고화질 대용량 파일도 안정적으로 저장)
-    with open(dest_path, "wb") as f:
-        while chunk := await file.read(1024 * 1024):
-            f.write(chunk)
+    # 1. 파일 바이트 읽기
+    file_bytes = await file.read()
 
-    # 메타데이터 기록
+    # 2. 로컬 캐시 디스크에 저장
+    try:
+        with open(dest_path, "wb") as f:
+            f.write(file_bytes)
+    except Exception as e:
+        print(f"로컬 파일 저장 예외 (무시 가능): {e}")
+
+    # 3. Supabase Storage 클라우드에 영구 업로드
+    content_type = file.content_type or (mimetypes.guess_type(safe_filename)[0] or "image/jpeg")
+    threading.Thread(target=supabase_upload_photo, args=(safe_filename, file_bytes, content_type), daemon=True).start()
+
+    # 4. 메타데이터 기록
     data = load_data()
     display_date = date if date else now.strftime("%Y-%m-%d %H:%M")
     photo_entry = {
@@ -531,20 +630,30 @@ def delete_photo(photo_id: str):
     if target_idx is None:
         raise HTTPException(status_code=404, detail="사진을 찾을 수 없습니다.")
 
-    # 파일 삭제
+    # 1. 로컬 캐시 파일 삭제
     file_path = ANTI_PIC_DIR / target_filename
     if file_path.exists():
         try:
             file_path.unlink()
         except Exception as e:
-            print(f"파일 삭제 실패: {e}")
+            print(f"로컬 파일 삭제 예외: {e}")
+
+    # 2. Supabase Storage 클라우드에서 삭제
+    threading.Thread(target=supabase_delete_photo, args=(target_filename,), daemon=True).start()
 
     data["photos"].pop(target_idx)
     save_data(data)
     return {"status": "deleted"}
 
-# 사진 정적 서빙 (바탕화면 Anti_PIC 마운트)
-app.mount("/photos", StaticFiles(directory=str(ANTI_PIC_DIR)), name="photos")
+# 사진 서빙: 로컬 캐시 파일이 있으면 즉시 반환, 없으면 Supabase Storage Public CDN으로 307 리다이렉트
+@app.get("/photos/{filename}")
+async def serve_photo(filename: str):
+    local_path = ANTI_PIC_DIR / filename
+    if local_path.exists() and local_path.is_file():
+        return FileResponse(local_path)
+    # Supabase Public CDN URL로 즉시 리다이렉트
+    supabase_url = f"{SUPABASE_URL}/storage/v1/object/public/photos/{filename}"
+    return RedirectResponse(url=supabase_url, status_code=307)
 
 # 웹 UI 정적 서빙
 if STATIC_DIR.exists():
@@ -556,6 +665,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print(" 몽글몽글 감성 사진첩 서버가 실행되었습니다! ")
     print(f" 저장소 경로: {ANTI_PIC_DIR}")
+    print(f" Supabase 클라우드 연동: {SUPABASE_URL}")
     print(f" 로컬 주소: http://localhost:{port}")
     print("=" * 60)
     uvicorn.run(app, host="0.0.0.0", port=port)

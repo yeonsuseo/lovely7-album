@@ -1,4 +1,4 @@
-﻿services:
+services:
   - type: web
     name: lovely7-album
     env: python
@@ -8,3 +8,7 @@
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
+      - key: SUPABASE_URL
+        value: https://vnbadllwmdatrowzunex.supabase.co
+      - key: SUPABASE_KEY
+        value: sb_publishable_cBeCGUigQ2Gj7jBCTJ972A_MDTARqws
