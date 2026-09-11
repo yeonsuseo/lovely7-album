@@ -802,7 +802,16 @@ function renderPhotosForAlbum(albumId) {
   renderGalleryPhotos(albumPhotos);
 }
 
-// 6-C. 사진 그리드 렌더링
+// 6-C. 갤러리 현재 뷰 새로고침 (앨범/사진 모드 호환)
+function renderGallery() {
+  if (currentView === "photos" && currentAlbumId) {
+    renderPhotosForAlbum(currentAlbumId);
+  } else {
+    renderAlbums();
+  }
+}
+
+// 6-D. 사진 그리드 렌더링
 function renderGalleryPhotos(photosToRender) {
   const grid = document.getElementById("galleryGrid");
   if (!grid) return;

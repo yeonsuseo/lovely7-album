@@ -129,7 +129,7 @@ def supabase_upload_photo(filename: str, file_bytes: bytes, content_type: str = 
         }
         res = requests.post(f"{SUPABASE_URL}/storage/v1/object/photos/{filename}", headers=headers, data=file_bytes, timeout=20)
         if res.status_code in (200, 201):
-            print(f"[Supabase Storage] ✅ {filename} 클라우드 저장 완료!")
+            print(f"[Supabase Storage] [OK] {filename} 클라우드 저장 완료!")
         else:
             print(f"[Supabase Storage Warning] 상태 {res.status_code}: {res.text}")
     except Exception as e:
@@ -149,6 +149,11 @@ def supabase_delete_photo(filename: str):
     except Exception as e:
         print(f"[Supabase Storage Delete Error] {e}")
 
+_DATA_CACHE = None
+_CACHE_LOCK = threading.Lock()
+_LAST_CACHE_FETCH = 0.0
+CACHE_TTL = 3.0  # 초 단위 캐시 유지 (다른 기기 동기화와 빠른 응답성 양립)
+
 def supabase_save_data_sync(data: dict):
     """Supabase Database(album_data)에 JSON 메타데이터 동기화"""
     if not SUPABASE_URL or not SUPABASE_KEY:
@@ -157,7 +162,7 @@ def supabase_save_data_sync(data: dict):
         headers = {
             "apikey": SUPABASE_KEY,
             "Authorization": f"Bearer {SUPABASE_KEY}",
-            "Content-Type": application/json,
+            "Content-Type": "application/json",
             "Prefer": "resolution=merge-duplicates"
         }
         payload = {
@@ -166,51 +171,76 @@ def supabase_save_data_sync(data: dict):
             "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
         res = requests.post(f"{SUPABASE_URL}/rest/v1/album_data", headers=headers, json=payload, timeout=8)
-        if res.status_code not in (200, 201):
+        if res.status_code in (200, 201):
+            print(f"[Supabase DB Save] [OK] 클라우드 동기화 완료! (상태: {res.status_code})")
+        else:
             print(f"[Supabase DB Save Warning] 상태 {res.status_code}: {res.text}")
     except Exception as e:
         print(f"[Supabase DB Save Error] {e}")
 
-def load_data():
-    """1차로 Supabase 클라우드에서 최신 데이터를 가져오고, 불가 시 로컬 파일 로드"""
+def load_data(force_cloud: bool = False):
+    """Supabase 클라우드 또는 메모리/로컬 캐시에서 데이터 로드"""
+    global _DATA_CACHE, _LAST_CACHE_FETCH
+    now = time.time()
+
+    # 1. 캐시가 유효하면 즉시 반환 (지연 시간 0ms, 경쟁 상태 방지)
+    with _CACHE_LOCK:
+        if not force_cloud and _DATA_CACHE is not None and (now - _LAST_CACHE_FETCH) < CACHE_TTL:
+            return _DATA_CACHE
+
+    # 2. Supabase 클라우드에서 최신 데이터 가져오기 시도
+    cloud_data = None
     if SUPABASE_URL and SUPABASE_KEY:
         try:
             headers = {
                 "apikey": SUPABASE_KEY,
                 "Authorization": f"Bearer {SUPABASE_KEY}"
             }
-            res = requests.get(f"{SUPABASE_URL}/rest/v1/album_data?id=eq.main&select=data", headers=headers, timeout=6)
+            res = requests.get(f"{SUPABASE_URL}/rest/v1/album_data?id=eq.main&select=data", headers=headers, timeout=5)
             if res.status_code == 200:
                 rows = res.json()
                 if rows and "data" in rows[0]:
                     cloud_data = rows[0]["data"]
-                    # 로컬 캐시 업데이트
-                    try:
-                        with open(DATA_FILE, "w", encoding="utf-8") as f:
-                            json.dump(cloud_data, f, ensure_ascii=False, indent=2)
-                    except Exception:
-                        pass
-                    return validate_and_migrate_data(cloud_data)
         except Exception as e:
             print(f"[Supabase Load Warning] 클라우드 로드 실패, 로컬 캐시 사용: {e}")
 
-    # 2. 로컬 캐시/파일 로드
-    if not DATA_FILE.exists():
-        initial_data = {
-            "shared": DEFAULT_SHARED,
-            "members": DEFAULT_MEMBERS,
-            "albums": DEFAULT_ALBUMS.copy(),
-            "photos": []
-        }
-        save_data(initial_data)
-        return initial_data
-    try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            return validate_and_migrate_data(data)
-    except Exception as e:
-        print(f"데이터 로드 오류: {e}")
-        return {"shared": DEFAULT_SHARED, "members": DEFAULT_MEMBERS, "albums": DEFAULT_ALBUMS.copy(), "photos": []}
+    with _CACHE_LOCK:
+        if cloud_data:
+            _DATA_CACHE = validate_and_migrate_data(cloud_data)
+            _LAST_CACHE_FETCH = now
+            try:
+                with open(DATA_FILE, "w", encoding="utf-8") as f:
+                    json.dump(_DATA_CACHE, f, ensure_ascii=False, indent=2)
+            except Exception:
+                pass
+            return _DATA_CACHE
+
+        if _DATA_CACHE is not None:
+            return _DATA_CACHE
+
+        # 3. 로컬 파일 로드 fallback
+        if not DATA_FILE.exists():
+            initial_data = {
+                "shared": DEFAULT_SHARED,
+                "members": DEFAULT_MEMBERS,
+                "albums": DEFAULT_ALBUMS.copy(),
+                "photos": []
+            }
+            _DATA_CACHE = initial_data
+            _LAST_CACHE_FETCH = now
+            save_data(initial_data)
+            return initial_data
+        try:
+            with open(DATA_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                _DATA_CACHE = validate_and_migrate_data(data)
+                _LAST_CACHE_FETCH = now
+                return _DATA_CACHE
+        except Exception as e:
+            print(f"데이터 로드 오류: {e}")
+            _DATA_CACHE = {"shared": DEFAULT_SHARED, "members": DEFAULT_MEMBERS, "albums": DEFAULT_ALBUMS.copy(), "photos": []}
+            _LAST_CACHE_FETCH = now
+            return _DATA_CACHE
 
 def validate_and_migrate_data(data):
     """데이터 무결성 검증 및 기본값 보정"""
@@ -259,12 +289,16 @@ def validate_and_migrate_data(data):
     return data
 
 def save_data(data):
-    """로컬 캐시에 즉시 저장하고, 백그라운드 스레드로 Supabase 클라우드에 비동기 저장"""
-    try:
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        print(f"데이터 로컬 캐시 저장 오류: {e}")
+    """메모리 및 로컬 캐시에 즉시 저장하고, 백그라운드 스레드로 Supabase 클라우드에 비동기 저장"""
+    global _DATA_CACHE, _LAST_CACHE_FETCH
+    with _CACHE_LOCK:
+        _DATA_CACHE = data
+        _LAST_CACHE_FETCH = time.time()
+        try:
+            with open(DATA_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"데이터 로컬 캐시 저장 오류: {e}")
     threading.Thread(target=supabase_save_data_sync, args=(data,), daemon=True).start()
 
 def sync_disk_photos(data):
